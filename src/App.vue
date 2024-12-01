@@ -1,9 +1,3 @@
-<script setup>
-// import HelloWorld from './components/HelloWorld.vue'
-import { CohereClientV2 } from "cohere-ai"; // Import Cohere SDK
-import { ref } from "vue"; // Import Vue's reactive ref
-</script>
-
 <template>
   <!-- <div>
     <a href="https://vite.dev" target="_blank">
@@ -105,89 +99,70 @@ import { ref } from "vue"; // Import Vue's reactive ref
   </div>
 </template>
 
-<script>
+<script setup>
+import { CohereClientV2 } from "cohere-ai"; // Import Cohere SDK
+import { ref } from "vue"; // Import Vue's reactive ref
 
-export default {
-  data() {
-    return {
-      userMessage: "", // User's input message
-      messages: [], // Messages array to store conversation
-      cohere: null, // Cohere client instance
-      loading: false, // Flag to track loading state for response
-    };
-  },
-  created() {
-    // Initialize Cohere client when the component is created
-    const apiKey = import.meta.env.VITE_COHERE_API_KEY;
-    this.cohere = new CohereClientV2({
-      token: apiKey, // Replace with your actual Cohere API key
+// Initialize Cohere client when the component is created
+const cohere = new CohereClientV2({
+  token: import.meta.env.VITE_COHERE_API_KEY, // Use Vite environment variable
+});
+
+const userMessage = ref("");
+const messages = ref([]);
+const loading = ref(false);
+
+const sendMessage = async () => {
+  if (!userMessage.value.trim()) return;
+
+  // Add user message to the chat history
+  messages.value.push({ sender: "You", text: userMessage.value });
+
+  // Add the loading bubble for bot's response
+  messages.value.push({ sender: "Bot", text: "(bot is thinking...)" });
+  loading.value = true;
+
+  // Clear the input field
+  const userInput = userMessage.value;
+  userMessage.value = "";
+
+  try {
+    // Send the entire chat history to Cohere's API
+    const response = await cohere.chat({
+      model: "command-r-08-2024",
+      messages: messages.value.map((message) => ({
+        role: message.sender === "You" ? "user" : "assistant",
+        content: message.text,
+      })),
     });
-  },
-  methods: {
-    async sendMessage() {
-      if (!this.userMessage.trim()) return; // Prevent sending empty messages
 
-      // Add user message to the chat history
-      this.messages.push({ sender: "You", text: this.userMessage });
+    if (response && response.message && response.message.content) {
+      const botMessage = response.message.content[0].text.trim();
+      messages.value.pop();
+      await typeWriterEffect(botMessage);
+    } else {
+      console.error("Unexpected response format:", response);
+    }
+  } catch (error) {
+    console.error("Error while fetching Cohere response:", error);
+  } finally {
+    loading.value = false;
+  }
+};
 
-      // Add the loading bubble for bot's response
-      this.messages.push({ sender: "Bot", text: "(bot is thinking...)" });
-      this.loading = true; // Set loading state to true
+const typeWriterEffect = async (text) => {
+  const targetMessageIndex = messages.value.length;
+  messages.value.push({ sender: "Bot", text: "" });
 
-      // Clear the input field
-      const userInput = this.userMessage;
-      this.userMessage = "";
-
-      try {
-        // Send the entire chat history to Cohere's API
-        const response = await this.cohere.chat({
-          model: "command-r-08-2024",
-          messages: this.messages.map((message) => ({
-            role: message.sender === "You" ? "user" : "assistant",
-            content: message.text,
-          })),
-        });
-
-        if (response && response.message && response.message.content) {
-          const botMessage = response.message.content[0].text.trim();
-
-          // Remove the "bot is thinking..." message and initiate typewriter effect
-          this.messages.pop(); // Remove the "bot is thinking..." message
-          await this.typeWriterEffect(botMessage);
-        } else {
-          console.error("Unexpected response format:", response);
-        }
-      } catch (error) {
-        console.error("Error while fetching Cohere response:", error);
-      } finally {
-        this.loading = false; // Reset loading state
-      }
-    },
-
-    async typeWriterEffect(text) {
-      // Add the bot's response as an empty message (for typing effect)
-      const targetMessageIndex = this.messages.length; // Get the index for the new message
-      this.messages.push({ sender: "Bot", text: "" }); // Add an empty bot message
-
-      let i = 0;
-      const typingInterval = setInterval(() => {
-        if (i < text.length) {
-          this.messages[targetMessageIndex].text += text[i];
-          i++;
-        } else {
-          clearInterval(typingInterval); // Stop typing effect when done
-        }
-      }, 10); // Adjust typing speed (in ms per character)
-    },
-
-    clearChat() {
-      this.messages = [];
-    },
-
-    logMessage() {
-      console.log(this.messages);
-    },
-  },
+  let i = 0;
+  const typingInterval = setInterval(() => {
+    if (i < text.length) {
+      messages.value[targetMessageIndex].text += text[i];
+      i++;
+    } else {
+      clearInterval(typingInterval);
+    }
+  }, 10);
 };
 </script>
 
