@@ -1,12 +1,17 @@
 import { defineConfig } from 'vite';
 import vue from '@vitejs/plugin-vue';
-import EnvironmentPlugin from 'vite-plugin-environment';
 
 export default defineConfig({
+  server: {
+    proxy: {
+      '/api': {
+        target: 'https://api.deepseek.com',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api/, ''),
+      },
+    },
+  },
   plugins: [
-    vue(),
-    EnvironmentPlugin({
-      VITE_COHERE_API_KEY: process.env.VITE_COHERE_API_KEY
-    })
+    vue()
   ]
 });

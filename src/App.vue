@@ -21,12 +21,11 @@
           <div class="text-center mt-6 lg:mt-12">
             <h1 class="text-3xl lg:text-5xl mb-4 lg:mb-6">AI ChatBot</h1>
             <h3 class="text-base lg:text-lg mb-8">
-              Developed by RihitoRiku. Built with Vue, Vite, and Tailwind.
-              Powered by Cohere's Command-R-08-2024 language model, this
-              interactive chatbot allows users to engage in natural
-              conversations. The application features a dynamic chat interface,
-              with real-time responses from the AI and a simple yet efficient
-              design.
+              Developed by Muhammad Rafi Shidiq (RihitoRiku). Built with Vue, Vite, and Tailwind.
+              Powered by DeepSeek's advanced language model, this interactive
+              chatbot allows users to engage in natural conversations. The
+              application features a dynamic chat interface, with real-time
+              responses from the AI and a simple yet efficient design.
             </h3>
           </div>
 
@@ -46,7 +45,7 @@
                 class="ml-auto max-w-xs flex items-start justify-start space-x-2"
               >
                 <div
-                  class="px-4 py-2 bg-blue-500 text-white rounded-lg rounded-tr-none"
+                  class="px-4 py-2 bg-blue-500 text-white rounded-lg rounsded-tr-none"
                 >
                   <span>{{ message.text }}</span>
                 </div>
@@ -100,13 +99,7 @@
 </template>
 
 <script setup>
-import { CohereClientV2 } from "cohere-ai"; // Import Cohere SDK
-import { ref } from "vue"; // Import Vue's reactive ref
-
-// Initialize Cohere client when the component is created
-const cohere = new CohereClientV2({
-  token: import.meta.env.VITE_COHERE_API_KEY, // Use Vite environment variable
-});
+import { ref } from "vue";
 
 const userMessage = ref("");
 const messages = ref([]);
@@ -122,29 +115,65 @@ const sendMessage = async () => {
   messages.value.push({ sender: "Bot", text: "(bot is thinking...)" });
   loading.value = true;
 
-  // Clear the input field
+  // Capture and clear the input
   const userInput = userMessage.value;
   userMessage.value = "";
 
   try {
-    // Send the entire chat history to Cohere's API
-    const response = await cohere.chat({
-      model: "command-r-08-2024",
-      messages: messages.value.map((message) => ({
-        role: message.sender === "You" ? "user" : "assistant",
-        content: message.text,
+    const payload = {
+      model: "deepseek-chat", // or use another DeepSeek model name if desired
+      messages: messages.value.map((msg) => ({
+        role: msg.sender === "You" ? "user" : "assistant",
+        content: msg.text,
       })),
+      stream: false,
+    };
+
+    const response = await fetch("https://api.deepseek.com/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+        Authorization: `Bearer ${import.meta.env.VITE_DEEPSEEK_API_KEY}`,
+      },
+      body: JSON.stringify(payload),
     });
 
-    if (response && response.message && response.message.content) {
-      const botMessage = response.message.content[0].text.trim();
-      messages.value.pop();
+    const data = await response.json();
+    // Expected response structure (OpenAI‑compatible):
+    // {
+    //   "id": "...",
+    //   "object": "chat.completion",
+    //   "created": 1694623155,
+    //   "model": "deepseek-chat",
+    //   "choices": [
+    //     {
+    //       "index": 0,
+    //       "message": {
+    //         "role": "assistant",
+    //         "content": [{ "text": "Your bot answer here" }]
+    //       },
+    //       "finish_reason": "stop"
+    //     }
+    //   ],
+    //   "usage": { ... }
+    // }
+
+    if (
+      data &&
+      data.choices &&
+      data.choices[0] &&
+      data.choices[0].message &&
+      data.choices[0].message.content
+    ) {
+      const botMessage = data.choices[0].message.content.trim();
+      messages.value.pop(); // remove the loading bubble
       await typeWriterEffect(botMessage);
     } else {
-      console.error("Unexpected response format:", response);
+      console.error("Unexpected response format:", data);
     }
   } catch (error) {
-    console.error("Error while fetching Cohere response:", error);
+    console.error("Error while fetching DeepSeek response:", error);
   } finally {
     loading.value = false;
   }
