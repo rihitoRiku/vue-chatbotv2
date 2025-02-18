@@ -76,7 +76,7 @@
           <!-- Input field and Send button -->
           <div class="w-full bg-white absolute left-0 bottom-0 pb-6 lg:pb-12">
             <div
-              class="bg-white max-w-[44rem] w-full flex p-2 space-x-2 border rounded-xl"
+              class="bg-white max-w-[44rem] w-full flex p-2 space-x-2 border rounded-full"
             >
               <input
                 v-model="userMessage"
@@ -86,7 +86,7 @@
               />
               <button
                 @click="sendMessage"
-                class="py-2 px-6 bg-green-400 text-white rounded-full hover:bg-green-500"
+                class="py-2 px-6 text-neutral-300" 
               >
                 <v-icon name="ri-send-plane-fill" scale="1.2" hover />
               </button>
@@ -99,11 +99,20 @@
 </template>
 
 <script setup>
-import { ref } from "vue";
+import { ref, nextTick } from 'vue';
+import VueDeviceDetector from "vue-device-detector";
 
 const userMessage = ref("");
 const messages = ref([]);
 const loading = ref(false);
+const messageInput = ref(null);
+
+const { isMobile } = VueDeviceDetector;
+const handleFocus = async () => {
+  if (!isMobile) return;
+  await nextTick();
+  messageInput.value.scrollIntoView({ behavior: 'smooth', block: 'center' });
+};
 
 const sendMessage = async () => {
   if (!userMessage.value.trim()) return;
